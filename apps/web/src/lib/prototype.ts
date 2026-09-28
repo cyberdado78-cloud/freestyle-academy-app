@@ -53,10 +53,13 @@ export type BgSection =
   | 'coach';
 
 export type Snapshot = {
+  gender: 'donna' | 'uomo';
   nickname: string;
   hair: string;
   skin: string;
   outfit: string;
+  outfitPiece: string;
+  outfitColor: string;
   accessory: string;
   room: string;
   plant: number;
@@ -193,10 +196,13 @@ export const initialTechniques: Technique[] = [
 ];
 
 export const initialState: Snapshot = {
+  gender: 'donna',
   nickname: 'Sara',
   hair: 'Chignon',
   skin: 'Media',
   outfit: 'Ambra',
+  outfitPiece: 'Base',
+  outfitColor: '#10151d',
   accessory: 'Nessuno',
   room: 'Santuario',
   plant: 2,
