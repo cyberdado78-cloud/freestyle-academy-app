@@ -61,6 +61,7 @@ export type Snapshot = {
   outfitPiece: string;
   outfitColor: string;
   accessory: string;
+  avatarEffect: string;
   room: string;
   plant: number;
   xp: number;
@@ -204,6 +205,7 @@ export const initialState: Snapshot = {
   outfitPiece: 'Base',
   outfitColor: '#10151d',
   accessory: 'Nessuno',
+  avatarEffect: 'Nessuno',
   room: 'Santuario',
   plant: 2,
   xp: 420,

@@ -108,6 +108,15 @@ const femaleLookPresets = [
   { src: '/art/sara-teal.png', hair: 'Chignon', outfit: 'Teal', label: 'Teal' },
 ] as const;
 
+const onboardingEffects = [
+  { id: 'none', label: 'Nessuno', tone: '#64748b' },
+  { id: 'amber', label: 'Aura ambra', tone: '#eda64b' },
+  { id: 'violet', label: 'Aura viola', tone: '#a855f7' },
+  { id: 'teal', label: 'Aura teal', tone: '#2dd4bf' },
+] as const;
+
+type OnboardTab = 'OUTFIT' | 'CAPELLI' | 'ACCESSORI' | 'EFFETTI';
+
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -121,7 +130,21 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-function InteractiveAthletePreview({ gender, label, imageSrc, compact = false }: { gender: 'donna' | 'uomo'; label: string; imageSrc: string; compact?: boolean }) {
+function InteractiveAthletePreview({
+  gender,
+  label,
+  imageSrc,
+  compact = false,
+  accessory = 'Nessuno',
+  effect = 'Nessuno',
+}: {
+  gender: 'donna' | 'uomo';
+  label: string;
+  imageSrc: string;
+  compact?: boolean;
+  accessory?: string;
+  effect?: string;
+}) {
   const [view, setView] = useState({ scale: 1, x: 0, y: 0, rotate: 0 });
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<{ distance: number; cx: number; cy: number; view: typeof view } | null>(null);
@@ -151,9 +174,11 @@ function InteractiveAthletePreview({ gender, label, imageSrc, compact = false }:
     }
   };
   const up = (e: React.PointerEvent<HTMLDivElement>) => { pointers.current.delete(e.pointerId); gesture.current=null; const pts=[...pointers.current.values()]; last.current=pts[0]||null; };
-  return <div className={`interactive-athlete ${compact?'compact':''}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onWheel={(e)=>{e.preventDefault(); setView(v=>({...v,scale:clamp(v.scale-e.deltaY*.001,.72,2.6)}));}}>
+  const effectClass = effect === 'Aura ambra' ? 'effect-amber' : effect === 'Aura viola' ? 'effect-violet' : effect === 'Aura teal' ? 'effect-teal' : '';
+  return <div className={`interactive-athlete ${compact?'compact':''} ${effectClass}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onWheel={(e)=>{e.preventDefault(); setView(v=>({...v,scale:clamp(v.scale-e.deltaY*.001,.72,2.6)}));}}>
     <div className="interactive-glow" aria-hidden />
     <img draggable={false} style={{transform:`translate3d(${view.x}px,${view.y}px,0) scale(${view.scale}) rotateY(${view.rotate}deg)`}} src={imageSrc} alt={`Anteprima atleta ${gender}`} />
+    {accessory !== 'Nessuno' ? <span className="interactive-accessory"><Sparkles size={11}/>{accessory}</span> : null}
     <span className="interactive-label">{label}</span>
     <button type="button" className="preview-reset" onPointerDown={e=>e.stopPropagation()} onClick={reset} aria-label="Reimposta vista"><RotateCcw size={14}/></button>
   </div>;
@@ -197,9 +222,11 @@ export function Experience() {
   );
   const [builderTab, setBuilderTab] = useState('Volto');
   const [builderPreset, setBuilderPreset] = useState(0);
-  const [onboardTab, setOnboardTab] = useState('OUTFIT');
+  const [onboardTab, setOnboardTab] = useState<OnboardTab>('OUTFIT');
   const [outfitChoice, setOutfitChoice] = useState('Base');
   const [outfitColor, setOutfitColor] = useState('#10151d');
+  const [onboardAccessory, setOnboardAccessory] = useState('Nessuno');
+  const [onboardEffect, setOnboardEffect] = useState('Nessuno');
   const fileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -210,6 +237,8 @@ export function Experience() {
     setAthleteGender(snapshot.gender);
     setOutfitChoice(snapshot.outfitPiece);
     setOutfitColor(snapshot.outfitColor);
+    setOnboardAccessory(snapshot.accessory);
+    setOnboardEffect(snapshot.avatarEffect);
     setHydrated(true);
   }, []);
 
@@ -255,6 +284,8 @@ export function Experience() {
       outfit: athleteGender === 'donna' ? look.outfit : s.outfit,
       outfitPiece: outfitChoice,
       outfitColor,
+      accessory: onboardAccessory,
+      avatarEffect: onboardEffect,
     }));
     setMode('sara');
     setPage('stanza');
@@ -536,7 +567,13 @@ export function Experience() {
           <nav className="builder-menu" aria-label="Categorie avatar">
             {['Volto','Capelli','Skin','Outfit','Accessori','Colori','Effetti'].map((x)=><button type="button" key={x} className={builderTab===x?'on':''} onClick={()=>setBuilderTab(x)}>{x}</button>)}
           </nav>
-          <InteractiveAthletePreview gender={athleteGender} imageSrc={onboardingAthleteImage} label={`${builderTab.toUpperCase()} · PROVA 2D`} />
+          <InteractiveAthletePreview
+            gender={athleteGender}
+            imageSrc={onboardingAthleteImage}
+            label={`${builderTab.toUpperCase()} · PROVA 2D`}
+            accessory={onboardAccessory}
+            effect={onboardEffect}
+          />
           <div className="builder-thumbs" aria-label="Preset visivi">
             {(athleteGender === 'uomo' ? [{ src: '/art/splash-athlete-man.png', label: 'Base uomo' }] : femaleLookPresets).map((look, i)=><button type="button" key={look.label} aria-label={`Aspetto ${look.label}`} className={i===builderPreset?'on':''} onClick={()=>setBuilderPreset(i)}><img src={look.src} alt=""/></button>)}
           </div>
@@ -555,13 +592,37 @@ export function Experience() {
           <button className="round-back" type="button" onClick={() => setMode('create-athlete')}><ArrowLeft size={20}/></button>
           <div><h1>PERSONALIZZAZIONE</h1><p>Crea un look che ti rappresenta</p></div>
         </header>
-        <div className="custom-tabs fa-safe">{['OUTFIT','CAPELLI','ACCESSORI','EFFETTI'].map((x)=><button type="button" className={onboardTab===x?'on':''} key={x} onClick={()=>setOnboardTab(x)}>{x}</button>)}</div>
+        <div className="custom-tabs fa-safe">{(['OUTFIT','CAPELLI','ACCESSORI','EFFETTI'] as const).map((x)=><button type="button" className={onboardTab===x?'on':''} key={x} onClick={()=>{ setOnboardTab(x); if (x === 'CAPELLI' && athleteGender === 'donna' && builderPreset > 2) setBuilderPreset(0); }}>{x}</button>)}</div>
         <section className="custom-layout fa-safe">
-          <InteractiveAthletePreview gender={athleteGender} imageSrc={onboardingAthleteImage} label="TRASCINA · PIZZICA · SPOSTA" compact />
+          <InteractiveAthletePreview
+            gender={athleteGender}
+            imageSrc={onboardingAthleteImage}
+            label="TRASCINA · PIZZICA · SPOSTA"
+            accessory={onboardAccessory}
+            effect={onboardEffect}
+            compact
+          />
           <div className="outfit-panel">
-            <div className="outfit-grid">{['Base','Top','Felpa','Pantaloni','Leggings','Scarpe'].map((x,i)=><button type="button" key={x} className={outfitChoice===x?'on':''} onClick={()=>setOutfitChoice(x)}><span>{i<2?'◆':'▣'}</span><small>{x}</small></button>)}</div>
-            <div className="swatches">{['#10151d','#a84238','#7c398f','#3185c7','#d9c7b0','#e18c9d'].map(c=><button type="button" key={c} className={outfitColor===c?'on':''} style={{background:c}} aria-label={`Colore ${c}`} onClick={()=>setOutfitColor(c)} />)}</div>
-            <div className="choice-readout"><span>{onboardTab}</span><strong>{outfitChoice}</strong><i style={{background:outfitColor}} /></div>
+            {onboardTab === 'OUTFIT' ? <>
+              <div className="outfit-grid">{['Base','Top','Felpa','Pantaloni','Leggings','Scarpe'].map((x,i)=><button type="button" key={x} className={outfitChoice===x?'on':''} onClick={()=>setOutfitChoice(x)}><span>{i<2?'◆':'▣'}</span><small>{x}</small></button>)}</div>
+              <div className="swatches">{['#10151d','#a84238','#7c398f','#3185c7','#d9c7b0','#e18c9d'].map(c=><button type="button" key={c} className={outfitColor===c?'on':''} style={{background:c}} aria-label={`Colore ${c}`} onClick={()=>setOutfitColor(c)} />)}</div>
+              <div className="choice-readout"><span>OUTFIT</span><strong>{outfitChoice}</strong><i style={{background:outfitColor}} /></div>
+            </> : null}
+            {onboardTab === 'CAPELLI' ? <>
+              <p className="panel-note">Scegli l'acconciatura. L'anteprima usa le immagini disponibili.</p>
+              <div className="outfit-grid option-grid">{(athleteGender === 'uomo' ? [{ src: '/art/splash-athlete-man.png', label: 'Base uomo' }] : femaleLookPresets.slice(0,3)).map((look,i)=><button type="button" key={look.label} className={builderPreset===i?'on':''} onClick={()=>setBuilderPreset(i)}><img src={look.src} alt=""/><small>{look.label}</small></button>)}</div>
+              <div className="choice-readout"><span>CAPELLI</span><strong>{athleteGender === 'uomo' ? 'Base uomo' : selectedFemaleLook.hair}</strong></div>
+            </> : null}
+            {onboardTab === 'ACCESSORI' ? <>
+              <p className="panel-note">Selezione salvata. Il modello grafico dell'accessorio arriverà con gli asset 3D.</p>
+              <div className="outfit-grid">{avatarOptions.accessory.filter((item)=>item.free).map((item)=><button type="button" key={item.id} className={onboardAccessory===item.label?'on':''} onClick={()=>setOnboardAccessory(item.label)}><span className="choice-symbol">{item.label === 'Nessuno' ? '—' : '✦'}</span><small>{item.label}</small></button>)}</div>
+              <div className="choice-readout"><span>ACCESSORIO</span><strong>{onboardAccessory}</strong></div>
+            </> : null}
+            {onboardTab === 'EFFETTI' ? <>
+              <p className="panel-note">Aggiungi un'aura luminosa visibile subito nell'anteprima.</p>
+              <div className="outfit-grid effect-grid">{onboardingEffects.map((item)=><button type="button" key={item.id} className={onboardEffect===item.label?'on':''} onClick={()=>setOnboardEffect(item.label)}><span className="effect-dot" style={{background:item.tone}}/><small>{item.label}</small></button>)}</div>
+              <div className="choice-readout"><span>EFFETTO</span><strong>{onboardEffect}</strong></div>
+            </> : null}
           </div>
         </section>
         <div className="look-strip fa-safe">{(athleteGender === 'uomo' ? [{ src: '/art/splash-athlete-man.png', label: 'Base uomo' }] : femaleLookPresets).map((look,i)=><button type="button" key={look.label} aria-label={`Look ${look.label}`} className={i===builderPreset?'on':''} onClick={()=>setBuilderPreset(i)}><img src={look.src} alt=""/></button>)}</div>
@@ -1465,11 +1526,12 @@ export function Experience() {
                     skin={state.skin}
                     outfit={state.outfit}
                     accessory={state.accessory}
+                    effect={state.avatarEffect}
                     size="hero"
                   />}
                   <strong className="avatar-preview-name">{state.nickname}</strong>
                   <small className="avatar-preview-details">
-                    {state.hair} · {state.skin} · {state.outfit}
+                    {state.hair} · {state.skin} · {state.outfit} · {state.accessory} · {state.avatarEffect}
                   </small>
                 </div>
               </div>
